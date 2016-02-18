@@ -73,6 +73,71 @@ def parse_args():
 
 
 
+class Extractor(caffe.Net):
+    def __init__(self, model_file, pretrained_file, mean_file):
+        caffe.Net.__init__(self, model_file, pretrained_file, caffe.TEST)
+
+        mean = np.load(mean_file)
+        if mean.shape[1:] != (1, 1):
+            mean = mean.mean(1).mean(1)
+
+        in_ = self.inputs[0]
+        self.transformer = caffe.io.Transformer({in_: self.blobs[in_].data.shape})
+        self.transformer.set_transpose(in_, (2,0,1))
+        self.transformer.set_mean(in_, mean)
+        self.transformer.set_channel_swap(in_, (2,1,0))
+        self.features = ['fc7']
+
+    def set_features(self, feature_layer):
+        self.features = feature_layer
+
+    def extract_features(self, images):
+        in_ = self.inputs[0]
+        caffe_in = np.zeros((len(images),)+self.blobs[in_].data.shape[1:])
+        for ix, image in enumerate(images):
+            caffe_in[ix] = self.transformer.preprocess(in_, caffe.io.load_image(image))
+        features = self.forward_all(**{in_: caffe_in, 'blobs': self.features})
+        return features
+
+    def extract_feature(self, image):
+        in_ = self.inputs[0]
+        self.blobs[in_].data[...] = self.transformer.preprocess(in_, caffe.io.load_image(image))
+        feature = self.forward(**{'blobs': self.features})
+        feature = {blob: vals[0] for blob, vals in feature.iteritems()}
+        return feature
+
+def extractor_factory():
+    model_def = os.path.join(caffe_root, "models/bvlc_reference_caffenet/deploy.prototxt")
+    pretrained_model = os.path.join(caffe_root, "models/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel")
+    mean_file = os.path.join(pycaffe_dir, 'caffe/imagenet/ilsvrc_2012_mean.npy')
+
+    extractor = Extractor(model_def, pretrained_model, mean_file)
+    return extractor
+
+def vis_square(data, padsize=1, padval=0):
+    data -= data.min()
+    data /= data.max()
+
+    # force the number of filters to be square
+    n = int(np.ceil(np.sqrt(data.shape[0])))
+    padding = ((0, n ** 2 - data.shape[0]), (0, padsize), (0, padsize)) + ((0, 0),) * (data.ndim - 3)
+    data = np.pad(data, padding, mode='constant', constant_values=(padval, padval))
+
+    # tile the filters into an image
+    data = data.reshape((n, n) + data.shape[1:]).transpose((0, 2, 1, 3) + tuple(range(4, data.ndim + 1)))
+    data = data.reshape((n * data.shape[1], n * data.shape[3]) + data.shape[4:])
+
+    plt.imshow(data)
+    # plt.savefig("visualize_conv.jpg")
+    # plt.close()
+
+def vis_fc(feature):
+    plt.plot(feature)
+    plt.xlim(xmax=feature.shape[0])
+    plt.savefig("visualize_fc.jpg")
+    plt.close()
+
+
 def vis_detections(im, class_name, dets, ax, thresh=0.5):
     """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
@@ -164,8 +229,7 @@ if __name__ == '__main__':
 
     roidb = imdb.roidb
     for i in xrange(num_images):
-        if i < 215:
-            continue
+
         print(imdb.image_path_at(i))
         im = cv2.imread(imdb.image_path_at(i))
         _t['im_detect'].tic()
@@ -186,6 +250,96 @@ if __name__ == '__main__':
                    'motorbike', 'person', 'pottedplant',
                    'sheep', 'sofa', 'train', 'tvmonitor')
 
+# (96, 213, 150)
+# (256, 107, 76)
+# (384, 54, 39)
+# (384, 54, 39)
+# (256, 54, 39)
+
+        # layer = 'conv1'
+        # feat = net.blobs[layer].data[0]
+        # vis_square(feat[:], padval = 0.5)
+        # print(feat.shape)
+        # plt.show()
+
+        # layer = 'conv2'
+        # feat = net.blobs[layer].data[0]
+        # vis_square(feat[:], padval = 0.5)
+        # print(feat.shape)
+        # plt.show()
+
+
+        # layer = 'conv3'
+        # feat = net.blobs[layer].data[0]
+        # vis_square(feat[:], padval = 0.5)
+        # print(feat.shape)
+        # plt.show()
+
+        # layer = 'conv4'
+        # feat = net.blobs[layer].data[0]
+        # vis_square(feat[:], padval = 0.5)
+        # print(feat.shape)
+        # plt.show()
+
+
+        # layer = 'conv5'
+        # feat = net.blobs[layer].data[0]
+        # vis_square(feat[:], padval = 0.5)
+        # print(feat.shape)
+
+        # raw_input("enter")
+        # plt.close('all')
+
+##################################################
+
+# (96, 3, 11, 11)
+# (256, 48, 5, 5)
+# (384, 256, 3, 3)
+# (384, 192, 3, 3)
+# (256, 192, 3, 3)
+
+        # layer = 'conv1'
+        # filters = net.params[layer][0].data
+        # print(filters.shape)
+        # vis_square(filters.transpose(0,2,3,1))
+
+        # plt.show()
+
+
+        # layer = 'conv2'
+        # filters = net.params[layer][0].data
+        # print(filters.shape)
+
+        # vis_square(filters[:20].reshape(20 * 48, 5, 5))
+        # plt.show()
+
+        # layer = 'conv3'
+        # filters = net.params[layer][0].data
+        # print(filters.shape)
+
+        # vis_square(filters[:20].reshape(20 * 256, 3, 3))
+        # plt.show()
+
+        # layer = 'conv4'
+        # filters = net.params[layer][0].data
+        # print(filters.shape)
+
+        # vis_square(filters[:20].reshape(20 * 192, 3, 3))
+        # plt.show()
+
+        # layer = 'conv5'
+        # filters = net.params[layer][0].data
+        # print(filters.shape)
+
+        # vis_square(filters[:20].reshape(20 * 192, 3, 3))
+        # plt.show()
+
+
+        # raw_input("enter")
+        # plt.close('all')
+
+
+##################################################
 
         fig, ax = plt.subplots(figsize=(12, 12))
 
@@ -217,7 +371,7 @@ if __name__ == '__main__':
             vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
         # plt.show()
-        fig.savefig("/home/users/wxie/fast-rcnn/output/img_box/{:06d}.jpg".format(i))
+        # fig.savefig("/home/users/wxie/fast-rcnn/output/img_box/{:06d}.jpg".format(i))
         plt.close('all')
 
         _t['misc'].tic()
