@@ -155,12 +155,12 @@ def vis_detections(im, class_name, dets, ax, thresh=0.5):
             plt.Rectangle((bbox[0], bbox[1]),
                           bbox[2] - bbox[0],
                           bbox[3] - bbox[1], fill=False,
-                          edgecolor='red', linewidth=3.5)
+                          edgecolor='red', linewidth=3.0)
             )
-        ax.text(bbox[0], bbox[1] - 2,
-                '{:s} {:.3f}'.format(class_name, score),
-                bbox=dict(facecolor='blue', alpha=0.5),
-                fontsize=14, color='white')
+        # ax.text(bbox[0], bbox[1] - 2,
+        #         '{:s} {:.3f}'.format(class_name, score),
+        #         bbox=dict(facecolor='blue', alpha=0.5),
+        #         fontsize=14, color='white')
 
     # ax.set_title(('{} detections with '
     #               'p({} | box) >= {:.1f}').format(class_name, class_name,
@@ -233,7 +233,11 @@ if __name__ == '__main__':
         print(imdb.image_path_at(i))
         im = cv2.imread(imdb.image_path_at(i))
         _t['im_detect'].tic()
-        scores, boxes = im_detect(net, im, roidb[i]['boxes'])
+        img_size_box = np.array([[0,0,im.shape[1]-1,im.shape[0]-1]])
+
+        # scores, boxes = im_detect(net, im, roidb[i]['boxes'])
+        scores, boxes = im_detect(net, im, img_size_box)
+
         _t['im_detect'].toc()
 
         CLASSES = ('__background__',
@@ -341,7 +345,7 @@ if __name__ == '__main__':
 
 ##################################################
 
-        fig, ax = plt.subplots(figsize=(12, 12))
+        fig, ax = plt.subplots(figsize=(12, 12), sharey=True)
 
         # Visualize detections for each class
         CONF_THRESH = 0.8
@@ -350,73 +354,115 @@ if __name__ == '__main__':
         # print(boxes.shape)   # num_boxes, coordinate of each boxes
         # print(boxes[0])
         # raw_input("Press Enter to continue...")
+        class_score_list = []
 
         for cls in classes:
             cls_ind = CLASSES.index(cls)
             cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
-
             cls_scores = scores[:, cls_ind]
 
-            keep = np.where(cls_scores >= CONF_THRESH)[0]
-            cls_boxes = cls_boxes[keep, :]
+            # Track the score
+            for score in cls_scores:
+                class_score_list.append((cls, score))
 
-            cls_scores = cls_scores[keep]
+            # TODO remove this test code
+            cls_boxes = img_size_box
+            #######################
+
+            # keep = np.where(cls_scores >= CONF_THRESH)[0]
+            # cls_boxes = cls_boxes[keep, :]
+            # cls_scores = cls_scores[keep]
 
             dets = np.hstack((cls_boxes,
                               cls_scores[:, np.newaxis])).astype(np.float32)
             keep = nms(dets, NMS_THRESH)
             dets = dets[keep, :]
+
             # print 'All {} detections with p({} | box) >= {:.1f}'.format(cls, cls,
             #                                                             CONF_THRESH)
+            cls = ""            # No print class for box
+
             vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
+        # Optional regression box draw
+        CONF_THRESH = 0.0
+        NMS_THRESH = 0.3
+        fig2, ax = plt.subplots(figsize=(12, 12), sharey=True)
+        for cls in classes:
+            cls_ind = CLASSES.index(cls)
+            cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
+            cls_scores = scores[:, cls_ind]
+            keep = np.where(cls_scores >= CONF_THRESH)[0]
+            cls_boxes = cls_boxes[keep, :]
+            cls_scores = cls_scores[keep]
+            dets = np.hstack((cls_boxes,
+                              cls_scores[:, np.newaxis])).astype(np.float32)
+            keep = nms(dets, NMS_THRESH)
+            dets = dets[keep, :]
+
+            vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
+
+
+        # Get top 5 prediction scores
+        class_score_list = sorted(class_score_list, key=lambda x: x[1], reverse=True)
+        class_score_list = class_score_list[:5]
+        # print(class_score_list)
+
+        # Print class confidence bar graph
+        fig3, ax = plt.subplots()
+        ind = np.arange(len(class_score_list))
+        width = 0.4
+        ax.bar(ind, [x[1] for x in class_score_list], width, color='r')
+        plt.xticks(ind + width/2, [x[0] + '\n' + str(x[1]) for x in class_score_list])
+
         # plt.show()
-        # fig.savefig("/home/users/wxie/fast-rcnn/output/img_box/{:06d}.jpg".format(i))
+        fig.savefig("/home/users/wxie/fast-rcnn/output/img_box_2/{:06d}.jpg".format(i))
+        fig2.savefig("/home/users/wxie/fast-rcnn/output/img_box_2/{:06d}_2.jpg".format(i))
+        fig3.savefig("/home/users/wxie/fast-rcnn/output/img_box_2/{:06d}_3.jpg".format(i))
         plt.close('all')
 
-        _t['misc'].tic()
-        for j in xrange(1, imdb.num_classes):
-            inds = np.where((scores[:, j] > thresh[j]) &
-                            (roidb[i]['gt_classes'] == 0))[0]
-            cls_scores = scores[inds, j]
-            cls_boxes = boxes[inds, j*4:(j+1)*4]
-            top_inds = np.argsort(-cls_scores)[:max_per_image]
-            cls_scores = cls_scores[top_inds]
-            cls_boxes = cls_boxes[top_inds, :]
-            # push new scores onto the minheap
-            for val in cls_scores:
-                heapq.heappush(top_scores[j], val)
-            # if we've collected more than the max number of detection,
-            # then pop items off the minheap and update the class threshold
-            if len(top_scores[j]) > max_per_set:
-                while len(top_scores[j]) > max_per_set:
-                    heapq.heappop(top_scores[j])
-                thresh[j] = top_scores[j][0]
+        # _t['misc'].tic()
+        # for j in xrange(1, imdb.num_classes):
+        #     inds = np.where((scores[:, j] > thresh[j]) &
+        #                     (roidb[i]['gt_classes'] == 0))[0]
+        #     cls_scores = scores[inds, j]
+        #     cls_boxes = boxes[inds, j*4:(j+1)*4]
+        #     top_inds = np.argsort(-cls_scores)[:max_per_image]
+        #     cls_scores = cls_scores[top_inds]
+        #     cls_boxes = cls_boxes[top_inds, :]
+        #     # push new scores onto the minheap
+        #     for val in cls_scores:
+        #         heapq.heappush(top_scores[j], val)
+        #     # if we've collected more than the max number of detection,
+        #     # then pop items off the minheap and update the class threshold
+        #     if len(top_scores[j]) > max_per_set:
+        #         while len(top_scores[j]) > max_per_set:
+        #             heapq.heappop(top_scores[j])
+        #         thresh[j] = top_scores[j][0]
 
-            all_boxes[j][i] = \
-                    np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
-                    .astype(np.float32, copy=False)
+        #     all_boxes[j][i] = \
+        #             np.hstack((cls_boxes, cls_scores[:, np.newaxis])) \
+        #             .astype(np.float32, copy=False)
 
-            if 0:
-                keep = nms(all_boxes[j][i], 0.3)
-                vis_detections(im, imdb.classes[j], all_boxes[j][i][keep, :])
-        _t['misc'].toc()
+        #     if 0:
+        #         keep = nms(all_boxes[j][i], 0.3)
+        #         vis_detections(im, imdb.classes[j], all_boxes[j][i][keep, :])
+        # _t['misc'].toc()
 
-        print 'im_detect: {:d}/{:d} {:.3f}s {:.3f}s' \
-              .format(i + 1, num_images, _t['im_detect'].average_time,
-                      _t['misc'].average_time)
+        print 'im_detect: {:d}/{:d} {:.3f}s' \
+              .format(i + 1, num_images, _t['im_detect'].average_time)
 
-    for j in xrange(1, imdb.num_classes):
-        for i in xrange(num_images):
-            inds = np.where(all_boxes[j][i][:, -1] > thresh[j])[0]
-            all_boxes[j][i] = all_boxes[j][i][inds, :]
+    # for j in xrange(1, imdb.num_classes):
+    #     for i in xrange(num_images):
+    #         inds = np.where(all_boxes[j][i][:, -1] > thresh[j])[0]
+    #         all_boxes[j][i] = all_boxes[j][i][inds, :]
 
-    det_file = os.path.join(output_dir, 'detections.pkl')
-    with open(det_file, 'wb') as f:
-        cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
+    # det_file = os.path.join(output_dir, 'detections.pkl')
+    # with open(det_file, 'wb') as f:
+    #     cPickle.dump(all_boxes, f, cPickle.HIGHEST_PROTOCOL)
 
-    print 'Applying NMS to all detections'
-    nms_dets = apply_nms(all_boxes, cfg.TEST.NMS)
+    # print 'Applying NMS to all detections'
+    # nms_dets = apply_nms(all_boxes, cfg.TEST.NMS)
 
-    print 'Evaluating detections'
-    imdb.evaluate_detections(nms_dets, output_dir)
+    # print 'Evaluating detections'
+    # imdb.evaluate_detections(nms_dets, output_dir)
