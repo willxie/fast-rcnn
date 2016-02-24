@@ -228,10 +228,24 @@ if __name__ == '__main__':
     _t = {'im_detect' : Timer(), 'misc' : Timer()}
 
     roidb = imdb.roidb
-    for i in xrange(num_images):
 
-        print(imdb.image_path_at(i))
-        im = cv2.imread(imdb.image_path_at(i))
+
+    # Load imagenet data instead!
+    # imagenet_dir = "/var/local/wxie/cs381V.grauman/ImageNet/CLS_LOC2014/ILSVRC2012_img_test/"
+    imagenet_dir = "/home/users/wxie/fast-rcnn/data/imagenet_demo/cat/"
+    correct_count = 0
+    target_class = 'cat'
+    file_name_list = os.listdir(imagenet_dir)
+
+    #########################################################
+
+    # for i in xrange(num_images):
+    for i in xrange(100):
+
+        # print(imdb.image_path_at(i))
+        # im = cv2.imread(imdb.image_path_at(i))
+        im = cv2.imread(imagenet_dir + file_name_list[i])
+
         _t['im_detect'].tic()
         img_size_box = np.array([[0,0,im.shape[1]-1,im.shape[0]-1]])
 
@@ -381,7 +395,6 @@ if __name__ == '__main__':
             # print 'All {} detections with p({} | box) >= {:.1f}'.format(cls, cls,
             #                                                             CONF_THRESH)
             cls = ""            # No print class for box
-
             vis_detections(im, cls, dets, ax, thresh=CONF_THRESH)
 
         # Optional regression box draw
@@ -392,6 +405,14 @@ if __name__ == '__main__':
             cls_ind = CLASSES.index(cls)
             cls_boxes = boxes[:, 4*cls_ind:4*(cls_ind + 1)]
             cls_scores = scores[:, cls_ind]
+            skip_this = False
+            # Hacky way to only show the max bounding box
+            for score in scores[0, 1:]:
+                if cls_scores[0] < score:
+                    skip_this = True
+            if skip_this:
+                continue
+
             keep = np.where(cls_scores >= CONF_THRESH)[0]
             cls_boxes = cls_boxes[keep, :]
             cls_scores = cls_scores[keep]
@@ -406,6 +427,9 @@ if __name__ == '__main__':
         # Get top 5 prediction scores
         class_score_list = sorted(class_score_list, key=lambda x: x[1], reverse=True)
         class_score_list = class_score_list[:5]
+        if class_score_list[0][0] == target_class:
+            correct_count += 1
+
         # print(class_score_list)
 
         # Print class confidence bar graph
@@ -416,9 +440,10 @@ if __name__ == '__main__':
         plt.xticks(ind + width/2, [x[0] + '\n' + str(x[1]) for x in class_score_list])
 
         # plt.show()
-        fig.savefig("/home/users/wxie/fast-rcnn/output/img_box_2/{:06d}.jpg".format(i))
-        fig2.savefig("/home/users/wxie/fast-rcnn/output/img_box_2/{:06d}_2.jpg".format(i))
-        fig3.savefig("/home/users/wxie/fast-rcnn/output/img_box_2/{:06d}_3.jpg".format(i))
+        dir_name = target_class
+        fig.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}.jpg".format(i))
+        fig2.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}_2.jpg".format(i))
+        fig3.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}_3.jpg".format(i))
         plt.close('all')
 
         # _t['misc'].tic()
@@ -452,6 +477,7 @@ if __name__ == '__main__':
         print 'im_detect: {:d}/{:d} {:.3f}s' \
               .format(i + 1, num_images, _t['im_detect'].average_time)
 
+    print("correct count for class {}: {}".format(target_class,correct_count))
     # for j in xrange(1, imdb.num_classes):
     #     for i in xrange(num_images):
     #         inds = np.where(all_boxes[j][i][:, -1] > thresh[j])[0]
