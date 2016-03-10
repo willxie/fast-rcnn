@@ -234,7 +234,7 @@ if __name__ == '__main__':
     # imagenet_dir = "/var/local/wxie/cs381V.grauman/ImageNet/CLS_LOC2014/ILSVRC2012_img_test/"
     imagenet_dir = "/home/users/wxie/fast-rcnn/data/imagenet_demo/cat/"
     correct_count = 0
-    target_class = 'cat'
+    target_class = 'dogg'
     file_name_list = os.listdir(imagenet_dir)
 
     #########################################################
@@ -243,16 +243,19 @@ if __name__ == '__main__':
     for i in xrange(100):
 
         # print(imdb.image_path_at(i))
-        # im = cv2.imread(imdb.image_path_at(i))
-        im = cv2.imread(imagenet_dir + file_name_list[i])
+        im = cv2.imread(imdb.image_path_at(i))
+        # im = cv2.imread(imagenet_dir + file_name_list[i])
 
         _t['im_detect'].tic()
         img_size_box = np.array([[0,0,im.shape[1]-1,im.shape[0]-1]])
 
-        # scores, boxes = im_detect(net, im, roidb[i]['boxes'])
-        scores, boxes = im_detect(net, im, img_size_box)
+        scores, boxes = im_detect(net, im, roidb[i]['boxes'])
+        # scores, boxes = im_detect(net, im, img_size_box)
 
         _t['im_detect'].toc()
+        print(roidb[i]['boxes'].shape)
+        print(scores.shape)
+        print(boxes.shape)
 
         CLASSES = ('__background__',
                    'aeroplane', 'bicycle', 'bird', 'boat',
@@ -379,13 +382,13 @@ if __name__ == '__main__':
             for score in cls_scores:
                 class_score_list.append((cls, score))
 
-            # TODO remove this test code
-            cls_boxes = img_size_box
-            #######################
+            # # TODO remove this test code
+            # cls_boxes = img_size_box
+            # #######################
 
-            # keep = np.where(cls_scores >= CONF_THRESH)[0]
-            # cls_boxes = cls_boxes[keep, :]
-            # cls_scores = cls_scores[keep]
+            keep = np.where(cls_scores >= CONF_THRESH)[0]
+            cls_boxes = cls_boxes[keep, :]
+            cls_scores = cls_scores[keep]
 
             dets = np.hstack((cls_boxes,
                               cls_scores[:, np.newaxis])).astype(np.float32)
@@ -441,9 +444,9 @@ if __name__ == '__main__':
 
         # plt.show()
         dir_name = target_class
-        fig.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}.jpg".format(i))
-        fig2.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}_2.jpg".format(i))
-        fig3.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}_3.jpg".format(i))
+        # fig.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}.jpg".format(i))
+        # fig2.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}_2.jpg".format(i))
+        # fig3.savefig("/home/users/wxie/fast-rcnn/output/"+dir_name+"/{:06d}_3.jpg".format(i))
         plt.close('all')
 
         # _t['misc'].tic()
