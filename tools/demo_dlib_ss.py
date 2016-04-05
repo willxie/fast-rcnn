@@ -88,14 +88,14 @@ def run_dlib_selective_search(image_name):
     proposals = np.array(proposals)
     return proposals
 
-def demo(net, image_name, classes):
+def demo(net, im_file, classes):
     """Detect object classes in an image using pre-computed object proposals."""
 
     # Load pre-computed Selected Search object proposals
     #box_file = os.path.join(cfg.ROOT_DIR, 'data', 'demo',image_name + '_boxes.mat')
     #obj_proposals = sio.loadmat(box_file)['boxes']
     # im_file = os.path.join(cfg.ROOT_DIR, 'data', 'demo', image_name + '.jpg')
-    im_file = os.path.join('/media/wxie/UNTITLED/vision_log/rgb', image_name + '.jpg')
+    # im_file = os.path.join('/media/wxie/UNTITLED/vision_log/rgb', image_name + '.jpg')
 
     timer2 = Timer()
     timer2.tic()
@@ -185,6 +185,17 @@ if __name__ == '__main__':
     # demo(net, 'rgb1084', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
     # demo(net, 'rgb1191', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
 
-    demo(net, 'rgb1646', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
-
-    plt.show()
+    image_dir = '/home/users/wxie/fast-rcnn/data/demo/vision_log'
+    image_name_list = os.listdir(image_dir)
+    for image_name in image_name_list:
+        im_file = os.path.join(image_dir, image_name)
+        print('')
+        print(im_file)
+        timer = Timer()
+        timer.tic()
+        demo(net, im_file, ( 'person', 'pottedplant', 'bottle', 'sofa', 'tvmonitor'))
+        timer.toc()
+        print ('The entire detection took {:.3f}s').format(timer.total_time)
+        im_file_output = os.path.join(image_dir, 'output', image_name)
+        plt.savefig(im_file_output)
+        # plt.show()
