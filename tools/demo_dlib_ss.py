@@ -97,6 +97,10 @@ def demo(net, im_file, classes):
     # im_file = os.path.join(cfg.ROOT_DIR, 'data', 'demo', image_name + '.jpg')
     # im_file = os.path.join('/media/wxie/UNTITLED/vision_log/rgb', image_name + '.jpg')
 
+    # Dummy bounding box list with only 1 bounding box the size of the image
+    im = cv2.imread(im_file)
+    img_size_box = np.array([[0,0,im.shape[1]-1,im.shape[0]-1]])
+
     timer2 = Timer()
     timer2.tic()
     obj_proposals = run_dlib_selective_search(im_file)
@@ -111,6 +115,7 @@ def demo(net, im_file, classes):
     timer = Timer()
     timer.tic()
     scores, boxes = im_detect(net, im, obj_proposals)
+    # scores, boxes = im_detect(net, im, img_size_box)
     timer.toc()
     print ('Detection took {:.3f}s for '
            '{:d} object proposals').format(timer.total_time, boxes.shape[0])
