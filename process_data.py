@@ -1,14 +1,43 @@
 import json
-from pprint import pprint
-
 import numpy as np
 import cv2
-
+'''
+TODO: make buttons for saving stuff
+'''
 def main():
+    # Train, val, test set split (3:1:1)
+    num_images  =  4388  # number of images with buildings in them
+    total_range = range(num_images)
+    train_range = total_range[:num_images // 5 * 3]
+    val_range   = total_range[num_images // 5 * 3 : num_images // 5 * 4]
+    test_range  = total_range[num_images // 5 * 4 :]
+    print("num_train: {}     num_val: {}     num_test: {}".format(len(train_range),
+                                                             len(val_range),
+                                                             len(test_range)))
+    print("num_sum: {}".format(len(train_range) + len(val_range) + len(test_range)))
+    print("num_images: {}".format(num_images))
+
+    # test_value = 5555
+    # if test_value in train_range:
+    #     print('.')
+    # if test_value in val_range:
+    #     print('..')
+    # if test_value in test_range:
+    #     print('...')
+    # return
+
+    view_bounding_box = False
+
     json_path = '/home/ubuntu/dataset/processedData/vectorData/summaryData/AOI_1_Rio_polygons_solution_3Band.geojson'
     #json_path = '/home/ubuntu/dataset/processedData/geoJson/013022223130_Public_img4_Geo.geojson'
 
     image_clip_path = '/home/ubuntu/dataset/processedData/3band/'
+
+    dataset_output_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
+    annotation_path = dataset_output_path + 'Annotations/'
+    image_set_path = dataset_output_path + 'ImageSets/'
+
+    chip_path = 'chips/'
 
     with open(json_path, 'rb') as f:
         geo_json = json.load(f)
@@ -16,7 +45,10 @@ def main():
     assert(geo_json["type"] == "FeatureCollection")
     feature_collection = geo_json["features"]
 
-    output_counter = 0
+    image_counter = -1
+    image_name_dict = {}
+
+    # Each iteration contains 1 bounding box
     for feature_dict in feature_collection:
         assert(feature_dict["type"] == "Feature")
 
@@ -34,7 +66,7 @@ def main():
 
         # Grab the image clip
         image_id = feature_dict["properties"]["ImageId"]
-        print(image_id + "---" + str(building_id))
+        print(image_id + "     building id: " + str(building_id) + "     image count:" + str(image_counter))
         img = cv2.imread(image_clip_path + "3band_" + image_id + ".tif")
 
 
@@ -55,33 +87,42 @@ def main():
         for coordinate_index in range(len(coordinate_list) - 1):
             color = (0, 0, 255)
             thickness = 2
-            cv2.line(img, coordinate_list[coordinate_index], coordinate_list[coordinate_index + 1], color, thickness)
+            # cv2.line(img, coordinate_list[coordinate_index], coordinate_list[coordinate_index + 1], color, thickness)
 
-        # print(np.array(coordinate_list))
-        # print(coordinate_list_np)
-        # print(np.array([[1,1], [2,2]]))
-
-        # img2 = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # contours, hierarchy = cv2.findContours(img2, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
-        # for cnt in contours:
-        #     print(type(cnt))
-        #     print(cnt.shape)
-        #     print(cnt.dtype)
-        #     print(cnt)
-        #     x, y, w, h = cv2.boundingRect(cnt)
-        #     cv2.rectangle(img, (x, y),(x + w, y + h), (0, 255, 0), 2)
-
-
+        # Need to change into an odd format that boundingRect takes
         x, y, w, h = cv2.boundingRect(np.expand_dims(np.array(coordinate_list), axis=1))
-        cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 2)
+        # cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 1)
 
-        output_counter += 1
 
-        cv2.imshow('image',img)
-        cv2.waitKey(0)
-        cv2.destroyAllWindows()
+        # Write trian.txt
+        if image_id not in image_name_dict:
+            # Tag the image_id so we don't write double
+            image_name_dict[image_id] = 1
+            image_counter += 1
+            if image_counter in train_range:
+                with open(image_set_path + "train.txt", 'ab') as f:
+                    f.write(image_id + "\n")
+            if image_counter in val_range:
+                with open(image_set_path + "val.txt", 'ab') as f:
+                    f.write(image_id + "\n")
+            if image_counter in test_range:
+                with open(image_set_path + "test.txt", 'ab') as f:
+                    f.write(image_id + "\n")
 
-        # cv2.imwrite("output_imgs/" + image_id + "_" + str(building_id) + ".jpg", img)
+
+        # Write x_min, y_min, x_max, y_max as annotation
+        if image_counter in train_range:
+            with open(annotation_path + str(image_counter) + ".txt", "ab") as f:
+                f.write("{} {} {} {}\n".format(x, y, x+w, y+h))
+
+        if view_bounding_box:
+            cv2.imshow('image',img)
+            cv2.waitKey(0)
+            cv2.destroyAllWindows()
+
+        # cv2.imwrite(chip_path + image_id + "_" + str(building_id) + ".jpg", img[y:y+h, x:x+w])
+
+
 
 if __name__ == "__main__":
     main()
