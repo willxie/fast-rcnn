@@ -10,6 +10,8 @@
 __sets = {}
 
 import datasets.pascal_voc
+# import datasets.spacenet
+from datasets import spacenet
 import numpy as np
 
 def _selective_search_IJCV_top_k(split, year, top_k):
@@ -36,6 +38,13 @@ for top_k in np.arange(1000, 11000, 1000):
             name = 'voc_{}_{}_top_{:d}'.format(year, split, top_k)
             __sets[name] = (lambda split=split, year=year, top_k=top_k:
                     _selective_search_IJCV_top_k(split, year, top_k))
+
+# Adding spacenet
+spacenet_devkit_path = '/home/ubuntu/fast-rcnn/spacenet'
+for split in ['train', 'val', 'test']:
+    name = '{}_{}'.format('spacenet', split)
+    __sets[name] = (lambda split=split: spacenet.spacenet(split, spacenet_devkit_path))
+
 
 def get_imdb(name):
     """Get an imdb (image database) by name."""
