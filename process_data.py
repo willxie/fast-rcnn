@@ -5,9 +5,6 @@ import numpy as np
 import cv2
 import os
 
-'''
-TODO: make buttons for saving stuff
-'''
 def main():
     view_bounding_box = False
 
@@ -115,14 +112,14 @@ def main():
                     f.write(band_prefix + image_id + "\n")
 
         # Write to disk
-        if image_counter in train_range:
-            # Write x_min, y_min, x_max, y_max as annotation required for fast-rcnn
-            with open(annotation_path + band_prefix + image_id + ".txt", "ab") as f:
-                f.write("{} {} {} {}\n".format(x, y, x+w, y+h))
-            # Record converted image type file if it doesn't exist already
-            current_image_path = image_path + band_prefix + image_id + ".png"
-            if not os.path.isfile(current_image_path):
-                cv2.imwrite(current_image_path, img)
+        # if image_counter in train_range:
+        # Write x_min, y_min, x_max, y_max as annotation required for fast-rcnn
+        with open(annotation_path + band_prefix + image_id + ".txt", "ab") as f:
+            f.write("{} {} {} {}\n".format(x, y, x+w, y+h))
+        # Record converted image type file if it doesn't exist already
+        current_image_path = image_path + band_prefix + image_id + ".png"
+        if not os.path.isfile(current_image_path):
+            cv2.imwrite(current_image_path, img)
 
         if view_bounding_box:
             cv2.imshow('image',img)
