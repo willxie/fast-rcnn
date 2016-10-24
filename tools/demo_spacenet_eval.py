@@ -30,8 +30,6 @@ from skimage import io
 
 CLASSES = ('__background__', 'building')
 
-MIN_BB_SIZE = 300
-
 # a and b are bounding box coordinates (x1, y1, x2, y2)
 def bb_intersection_area(a, b):
     return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
@@ -46,9 +44,7 @@ def bb_iou_area(a, b):
     return bb_intersection_area(a, b) / bb_union_area(a, b)
 
 def process_detections(im, class_name, dets, true_dets, thresh=0.5):
-    """Draw detected bounding boxes."""
     inds = np.where(dets[:, -1] >= thresh)[0]
-
     num_dets = len(inds)
     if num_dets == 0:
         return (0, 0, 0)
@@ -67,16 +63,14 @@ def process_detections(im, class_name, dets, true_dets, thresh=0.5):
             if bb_iou_area(tuple(bbox), true_det) > 0.5:
                 true_pos += 1
                 matched = True
-                # Assuming no duplicate annotated detections
+                # Allow only 1 patch per true detection
                 remaining_true_dets.remove(true_det)
                 break
 
         if not matched:
             false_pos += 1
 
-
     false_neg = num_true_dets - true_pos
-
     return (true_pos, false_pos, false_neg)
 
 def vis_detections(im, class_name, dets, true_dets, thresh=0.5):
@@ -121,7 +115,7 @@ def vis_detections(im, class_name, dets, true_dets, thresh=0.5):
     plt.draw()
 
 def run_dlib_selective_search(image_name):
-
+    MIN_BB_SIZE = 300
     img = io.imread(image_name)
     rects = []
     dlib.find_candidate_object_locations(img,rects,min_size=MIN_BB_SIZE)
@@ -132,7 +126,7 @@ def run_dlib_selective_search(image_name):
     proposals = np.array(proposals)
     return proposals
 
-def demo(net, threshold_list, annotation_path, file_path, classes, all_results):
+def demo(net, threshold_list, annotation_path, file_path, classes, all_results, record_visual):
     """Detect object classes in an image using pre-computed object proposals."""
     timer2 = Timer()
     timer2.tic()
@@ -182,13 +176,12 @@ def demo(net, threshold_list, annotation_path, file_path, classes, all_results):
             # Filter out the overlaps
             keep = nms(dets, NMS_THRESH)
             dets = dets[keep, :]
-            # print 'All {} detections with p({} | box) >= {:.1f}'.format(cls, cls,
-            #                                                             CONF_THRESH)
             results = process_detections(im, cls, dets, true_dets, thresh=threshold)
             print("Threshold {}: true_pos={}   false_pos={}   false_neg={}".format(
                 threshold, results[0], results[1], results[2]))
             all_results.setdefault(threshold, []).append(results)
-            if threshold == CONF_THRESH:
+            # Optional draw bounding box to the original image
+            if threshold == CONF_THRESH and record_visual:
                 vis_detections(im, cls, dets, true_dets, thresh=CONF_THRESH)
 
 def parse_args():
@@ -199,8 +192,6 @@ def parse_args():
     parser.add_argument('--cpu', dest='cpu_mode',
                         help='Use CPU mode (overrides --gpu)',
                         action='store_true')
-    # parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
-    #                     choices=NETS.keys(), default='caffenet')
 
     args = parser.parse_args()
 
@@ -209,8 +200,19 @@ def parse_args():
 def main():
     args = parse_args()
 
+    # TODO move these to argument parser
     prototxt   = "/home/ubuntu/fast-rcnn/models/CaffeNetSpacenet/test_demo.prototxt"
     caffemodel = "/home/ubuntu/fast-rcnn/output/default/train/caffenetspacenet_fast_rcnn_iter_90000.caffemodel"
+
+    # Data paths
+    dataset_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
+    image_dir_path = dataset_path + 'Images/'
+    annotation_dir_path = dataset_path + "Annotations/"
+    name_file_path = dataset_path + 'ImageSets/test.txt'
+
+    output_path = '/home/ubuntu/fast-rcnn/spacenet/results/test/'
+
+    record_visual = False
 
     if not os.path.isfile(caffemodel):
         raise IOError(('Could not find caffemodel').format(caffemodel))
@@ -222,38 +224,41 @@ def main():
         caffe.set_mode_gpu()
         caffe.set_device(args.gpu_id)
         print("GPU MODE")
+
     net = caffe.Net(prototxt, caffemodel, caffe.TEST)
 
     print '\n\nLoaded network {:s}'.format(caffemodel)
 
     threshold_list = [x * 0.1 for x in range(1, 10)]
 
-    dataset_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
-    image_dir_path = dataset_path + 'Images/'
-    annotation_dir_path = dataset_path + "Annotations/"
-    name_file_path = dataset_path + 'ImageSets/test.txt'
-
-    output_path = '/home/ubuntu/fast-rcnn/spacenet/results/test/'
-
     # { threshold: [(true_pos, false_pos, false_neg), ...], ...}
     all_results = {}
     image_count = 0
     with open(name_file_path, 'rb') as f:
         for line in f:
+            # Validation and test set image names are stored in respective files
             filename = line.rstrip('\n')
             file_path = image_dir_path + filename + '.png'
             print("Image number " + str(image_count))
             print(file_path)
             timer = Timer()
             timer.tic()
+
+            # Annotaiton has the same name as the image
             annotation_path = annotation_dir_path + filename + ".txt"
-            demo(net, threshold_list, annotation_path, file_path, CLASSES, all_results)
+
+            # Run detection and evaluation
+            demo(net, threshold_list, annotation_path, file_path, CLASSES, all_results, record_visual)
             timer.toc()
             print ('The entire detection took {:.3f}s').format(timer.total_time)
-            filename_output = output_path + filename + ".png"
-            # plt.show()
-            plt.savefig(filename_output)
-            plt.close('all')
+
+            # Record visual outputs
+            if record_visual:
+                filename_output = output_path + filename + ".png"
+                # plt.show()
+                plt.savefig(filename_output)
+                plt.close('all')
+
             print('')
             image_count += 1
 
@@ -271,10 +276,4 @@ def main():
                                                                   float(true_pos) / (true_pos + false_pos)))
 
 if __name__ == '__main__':
-    # sizes = [350, 300, 250]
-    # for size in sizes:
-    #     MIN_BB_SIZE = size
-        main()
-        # print("MIN_BB_SIZE {}".format(MIN_BB_SIZE ))
-        # print('')
-        # print('')
+    main()

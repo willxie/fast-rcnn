@@ -6,25 +6,17 @@ import cv2
 import os
 
 def main():
-    view_bounding_box = False
-
-    # Train, val, test set index split (3:1:1)
-    num_images  =  4388  # number of images with buildings in them
-    total_range = range(num_images)
-    train_range = total_range[:num_images // 5 * 3]
-    val_range   = total_range[num_images // 5 * 3 : num_images // 5 * 4]
-    test_range  = total_range[num_images // 5 * 4 :]
-    print("num_train: {}     num_val: {}     num_test: {}".format(len(train_range),
-                                                             len(val_range),
-                                                             len(test_range)))
-    print("num_sum: {}".format(len(train_range) + len(val_range) + len(test_range)))
-    print("num_images: {}".format(num_images))
-
     # Image chips source
     image_clip_path = '/home/ubuntu/dataset/processedData/3band/'
 
-    # Bounding box annotaiton source
+    # Annotaiton geojson source
     json_path = '/home/ubuntu/dataset/processedData/vectorData/summaryData/AOI_1_Rio_polygons_solution_3Band.geojson'
+
+    # Band
+    band_prefix = '3band_'
+
+    # Outputs for bounding box overlay original image chip
+    chip_bb_path = 'chips/'
 
     # Output destinations
     dataset_output_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
@@ -32,12 +24,18 @@ def main():
     image_set_path  = dataset_output_path + 'ImageSets/'
     image_path      = dataset_output_path + 'Images/'
 
-    # Outputs for bounding box overlay original image chip
-    chip_bb_path = 'chips/'
+    view_bounding_box = False
 
-    # Band
-    band_prefix = '3band_'
+    # Train, val, test set index split (3:1:1)
+    total_range = range(num_images)
+    train_range = total_range[:num_images // 5 * 3]
+    val_range   = total_range[num_images // 5 * 3 : num_images // 5 * 4]
+    test_range  = total_range[num_images // 5 * 4 :]
+    print("num_train: {}     num_val: {}     num_test: {}".format(len(train_range),
+                                                             len(val_range),
+                                                             len(test_range)))
 
+    # Load annotation
     with open(json_path, 'rb') as f:
         geo_json = json.load(f)
 
@@ -95,7 +93,6 @@ def main():
         x, y, w, h = cv2.boundingRect(np.expand_dims(np.array(coordinate_list), axis=1))
         # cv2.rectangle(img, (x,y), (x+w, y+h), (0,255,0), 1)
 
-
         # Write trian.txt
         if image_id not in image_name_dict:
             # Tag the image_id so we don't write double
@@ -112,7 +109,6 @@ def main():
                     f.write(band_prefix + image_id + "\n")
 
         # Write x_min, y_min, x_max, y_max as annotation required for fast-rcnn
-        # TODO write annotaiton for train and val in another dir
         if image_counter in train_range:
             with open(annotation_path + band_prefix + image_id + ".txt", "ab") as f:
                 f.write("{} {} {} {}\n".format(x, y, x+w, y+h))
@@ -127,9 +123,6 @@ def main():
             cv2.waitKey(0)
             cv2.destroyAllWindows()
             # cv2.imwrite(chip_bb_path + image_id + "_" + str(building_id) + ".jpg", img[y:y+h, x:x+w])
-
-
-
 
 if __name__ == "__main__":
     main()
