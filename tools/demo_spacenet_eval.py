@@ -30,6 +30,8 @@ from skimage import io
 
 CLASSES = ('__background__', 'building')
 
+MIN_BB_SIZE = 300
+
 # a and b are bounding box coordinates (x1, y1, x2, y2)
 def bb_intersection_area(a, b):
     return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
@@ -119,9 +121,10 @@ def vis_detections(im, class_name, dets, true_dets, thresh=0.5):
     plt.draw()
 
 def run_dlib_selective_search(image_name):
+
     img = io.imread(image_name)
     rects = []
-    dlib.find_candidate_object_locations(img,rects,min_size=400)
+    dlib.find_candidate_object_locations(img,rects,min_size=MIN_BB_SIZE)
     proposals = []
     for k,d in enumerate(rects):
         templist = [d.left(),d.top(),d.right(),d.bottom()]
@@ -160,7 +163,7 @@ def demo(net, threshold_list, annotation_path, file_path, classes, all_results):
             true_dets.append(tuple([int(coor) for coor in coord_list]))
 
     # Visualize detections for each class
-    CONF_THRESH = 0.8
+    CONF_THRESH = 0.6
     NMS_THRESH = 0.5
     for cls in classes:
         # Skip background class
@@ -185,8 +188,8 @@ def demo(net, threshold_list, annotation_path, file_path, classes, all_results):
             print("Threshold {}: true_pos={}   false_pos={}   false_neg={}".format(
                 threshold, results[0], results[1], results[2]))
             all_results.setdefault(threshold, []).append(results)
-            # if threshold == CONF_THRESH:
-            #     vis_detections(im, cls, dets, true_dets, thresh=CONF_THRESH)
+            if threshold == CONF_THRESH:
+                vis_detections(im, cls, dets, true_dets, thresh=CONF_THRESH)
 
 def parse_args():
     """Parse input arguments."""
@@ -223,12 +226,12 @@ def main():
 
     print '\n\nLoaded network {:s}'.format(caffemodel)
 
-    threshold_list = [x * 0.1 for x in range(5, 10)]
+    threshold_list = [x * 0.1 for x in range(1, 10)]
 
     dataset_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
     image_dir_path = dataset_path + 'Images/'
     annotation_dir_path = dataset_path + "Annotations/"
-    name_file_path = dataset_path + 'ImageSets/val.txt'
+    name_file_path = dataset_path + 'ImageSets/test.txt'
 
     output_path = '/home/ubuntu/fast-rcnn/spacenet/results/test/'
 
@@ -248,14 +251,11 @@ def main():
             timer.toc()
             print ('The entire detection took {:.3f}s').format(timer.total_time)
             filename_output = output_path + filename + ".png"
-            # plt.savefig(filename_output)
             # plt.show()
-            # plt.close('all')
+            plt.savefig(filename_output)
+            plt.close('all')
             print('')
             image_count += 1
-            # TODO REMOVE test code
-            if image_count >= 200:
-                break
 
     print("\n\nTotal\n\n")
     print("(true_pos, false_pos, false_neg)")
@@ -271,5 +271,10 @@ def main():
                                                                   float(true_pos) / (true_pos + false_pos)))
 
 if __name__ == '__main__':
-
-    main()
+    # sizes = [350, 300, 250]
+    # for size in sizes:
+    #     MIN_BB_SIZE = size
+        main()
+        # print("MIN_BB_SIZE {}".format(MIN_BB_SIZE ))
+        # print('')
+        # print('')
