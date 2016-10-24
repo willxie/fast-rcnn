@@ -112,14 +112,15 @@ def main():
                     f.write(band_prefix + image_id + "\n")
 
         # Write x_min, y_min, x_max, y_max as annotation required for fast-rcnn
+        # TODO write annotaiton for train and val in another dir
         if image_counter in train_range:
             with open(annotation_path + band_prefix + image_id + ".txt", "ab") as f:
                 f.write("{} {} {} {}\n".format(x, y, x+w, y+h))
 
-        # Record converted image type file if it doesn't exist already
-        current_image_path = image_path + band_prefix + image_id + ".png"
-        if not os.path.isfile(current_image_path):
-            cv2.imwrite(current_image_path, img)
+            # Record converted image type file if it doesn't exist already
+            current_image_path = image_path + band_prefix + image_id + ".png"
+            if not os.path.isfile(current_image_path):
+                cv2.imwrite(current_image_path, img)
 
         if view_bounding_box:
             cv2.imshow('image',img)

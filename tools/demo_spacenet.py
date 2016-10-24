@@ -132,6 +132,7 @@ def demo(net, im_file, classes):
         cls_scores = cls_scores[keep]
         dets = np.hstack((cls_boxes,
                           cls_scores[:, np.newaxis])).astype(np.float32)
+        # Filter out the overlaps
         keep = nms(dets, NMS_THRESH)
         dets = dets[keep, :]
         print 'All {} detections with p({} | box) >= {:.1f}'.format(cls, cls,
@@ -156,14 +157,11 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
 
-    prototxt = os.path.join(cfg.ROOT_DIR, 'models', NETS[args.demo_net][0],
-                            'test.prototxt')
     prototxt   = "/home/ubuntu/fast-rcnn/models/CaffeNetSpacenet/test_demo.prototxt"
-    caffemodel = "/home/ubuntu/fast-rcnn/output/default/train/caffenetspacenet_fast_rcnn_iter_40000.caffemodel"
+    caffemodel = "/home/ubuntu/fast-rcnn/output/default/train/caffenetspacenet_fast_rcnn_iter_40000_bak.caffemodel"
 
     if not os.path.isfile(caffemodel):
-        raise IOError(('{:s} not found.\nDid you run ./data/script/'
-                       'fetch_fast_rcnn_models.sh?').format(caffemodel))
+        raise IOError(('Could not find caffemodel').format(caffemodel))
 
     if args.cpu_mode:
         caffe.set_mode_cpu()
@@ -176,35 +174,22 @@ if __name__ == '__main__':
 
     print '\n\nLoaded network {:s}'.format(caffemodel)
 
-    #demo(net,'bag',('n02769748',))
-    # print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    # print 'Demo for data/demo/000004.jpg'
-    # demo(net, '000004', ('car',))
+    dataset_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
+    image_path = dataset_path + 'Images/'
+    name_file_path = dataset_path + 'ImageSets/val.txt'
+    output_path = '/home/ubuntu/fast-rcnn/spacenet/results/test/'
 
-    # print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-    # print 'Demo for data/demo/001551.jpg'
-    # demo(net, '001551', ('sofa', 'tvmonitor'))
-
-
-    # demo(net, 'rgb72', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
-    # demo(net, 'rgb63', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
-    # demo(net, 'rgb782', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
-    # demo(net, 'rgb1084', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
-    # demo(net, 'rgb1191', ( 'person', 'pottedplant', 'sofa', 'train', 'tvmonitor'))
-
-
-    image_dir = "/home/ubuntu/fast-rcnn/spacenet/data/Images"
-    image_name_list = [ "3band_013022232200_Public_img7156", "3band_013022223133_Public_img3988" ]
-    for image_name in image_name_list:
-        im_file = os.path.join(image_dir, image_name + ".png")
-        print('')
-        print(im_file)
-        timer = Timer()
-        timer.tic()
-        # demo(net, im_file, ( 'person', 'pottedplant', 'bottle', 'sofa', 'tvmonitor'))
-        demo(net, im_file, CLASSES)
-        timer.toc()
-        print ('The entire detection took {:.3f}s').format(timer.total_time)
-        # im_file_output = os.path.join(image_dir, 'output', image_name)
-        # plt.savefig(im_file_output)
-        plt.show()
+    with open(name_file_path, 'rb') as f:
+        for line in f:
+            filename = image_path + line.rstrip('\n') + '.png'
+            print('')
+            print(filename)
+            timer = Timer()
+            timer.tic()
+            # demo(net, filename, ( 'person', 'pottedplant', 'bottle', 'sofa', 'tvmonitor'))
+            demo(net, filename, CLASSES)
+            timer.toc()
+            print ('The entire detection took {:.3f}s').format(timer.total_time)
+            filename_output = output_path + line.rstrip('\n') + ".png"
+            plt.savefig(filename_output)
+            # plt.show()

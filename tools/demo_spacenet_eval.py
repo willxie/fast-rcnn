@@ -30,13 +30,6 @@ from skimage import io
 
 CLASSES = ('__background__', 'building')
 
-NETS = {'vgg16': ('VGG16',
-                  'vgg16_fast_rcnn_iter_40000.caffemodel'),
-        'vgg_cnn_m_1024': ('VGG_CNN_M_1024',
-                           'vgg_cnn_m_1024_fast_rcnn_iter_40000.caffemodel'),
-        'caffenet': ('CaffeNet',
-                     'caffenet_fast_rcnn_iter_40000.caffemodel')}
-
 # a and b are bounding box coordinates (x1, y1, x2, y2)
 def bb_intersection_area(a, b):
     return max(0, min(a[2], b[2]) - max(a[0], b[0])) * max(0, min(a[3], b[3]) - max(a[1], b[1]))
@@ -58,6 +51,7 @@ def process_detections(im, class_name, dets, true_dets, thresh=0.5):
     if num_dets == 0:
         return (0, 0, 0)
 
+    remaining_true_dets = true_dets[:]
     num_true_dets = len(true_dets)
     true_pos = 0
     false_pos = 0
@@ -66,11 +60,13 @@ def process_detections(im, class_name, dets, true_dets, thresh=0.5):
         score = dets[i, -1]
 
         # Find if the durrent detection box has 50% overlap with ground truth
-        for true_det in true_dets:
+        for true_det in remaining_true_dets:
             matched = False
             if bb_iou_area(tuple(bbox), true_det) > 0.5:
                 true_pos += 1
                 matched = True
+                # Assuming no duplicate annotated detections
+                remaining_true_dets.remove(true_det)
                 break
 
         if not matched:
@@ -125,7 +121,7 @@ def vis_detections(im, class_name, dets, true_dets, thresh=0.5):
 def run_dlib_selective_search(image_name):
     img = io.imread(image_name)
     rects = []
-    dlib.find_candidate_object_locations(img,rects,min_size=100)
+    dlib.find_candidate_object_locations(img,rects,min_size=400)
     proposals = []
     for k,d in enumerate(rects):
         templist = [d.left(),d.top(),d.right(),d.bottom()]
@@ -133,7 +129,7 @@ def run_dlib_selective_search(image_name):
     proposals = np.array(proposals)
     return proposals
 
-def demo(net, annotation_path, file_path, classes, all_results):
+def demo(net, threshold_list, annotation_path, file_path, classes, all_results):
     """Detect object classes in an image using pre-computed object proposals."""
     timer2 = Timer()
     timer2.tic()
@@ -164,13 +160,12 @@ def demo(net, annotation_path, file_path, classes, all_results):
             true_dets.append(tuple([int(coor) for coor in coord_list]))
 
     # Visualize detections for each class
-    threshold_list = [x * 0.1 for x in range(1, 10)]
     CONF_THRESH = 0.8
-    NMS_THRESH = 0.3
+    NMS_THRESH = 0.5
     for cls in classes:
         # Skip background class
-        # if cls == '__background__':
-        #     continue
+        if cls == '__background__':
+            continue
         print("Class: {}".format(cls))
         for threshold in threshold_list:
             cls_ind = CLASSES.index(cls)
@@ -190,8 +185,8 @@ def demo(net, annotation_path, file_path, classes, all_results):
             print("Threshold {}: true_pos={}   false_pos={}   false_neg={}".format(
                 threshold, results[0], results[1], results[2]))
             all_results.setdefault(threshold, []).append(results)
-            if threshold == CONF_THRESH:
-                vis_detections(im, cls, dets, true_dets, thresh=CONF_THRESH)
+            # if threshold == CONF_THRESH:
+            #     vis_detections(im, cls, dets, true_dets, thresh=CONF_THRESH)
 
 def parse_args():
     """Parse input arguments."""
@@ -201,8 +196,8 @@ def parse_args():
     parser.add_argument('--cpu', dest='cpu_mode',
                         help='Use CPU mode (overrides --gpu)',
                         action='store_true')
-    parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
-                        choices=NETS.keys(), default='caffenet')
+    # parser.add_argument('--net', dest='demo_net', help='Network to use [vgg16]',
+    #                     choices=NETS.keys(), default='caffenet')
 
     args = parser.parse_args()
 
@@ -228,6 +223,8 @@ def main():
 
     print '\n\nLoaded network {:s}'.format(caffemodel)
 
+    threshold_list = [x * 0.1 for x in range(5, 10)]
+
     dataset_path = '/home/ubuntu/fast-rcnn/spacenet/data/'
     image_dir_path = dataset_path + 'Images/'
     annotation_dir_path = dataset_path + "Annotations/"
@@ -237,32 +234,42 @@ def main():
 
     # { threshold: [(true_pos, false_pos, false_neg), ...], ...}
     all_results = {}
+    image_count = 0
     with open(name_file_path, 'rb') as f:
         for line in f:
             filename = line.rstrip('\n')
             file_path = image_dir_path + filename + '.png'
-            print('')
+            print("Image number " + str(image_count))
             print(file_path)
             timer = Timer()
             timer.tic()
             annotation_path = annotation_dir_path + filename + ".txt"
-            demo(net, annotation_path, file_path, CLASSES, all_results)
+            demo(net, threshold_list, annotation_path, file_path, CLASSES, all_results)
             timer.toc()
             print ('The entire detection took {:.3f}s').format(timer.total_time)
             filename_output = output_path + filename + ".png"
-            plt.savefig(filename_output)
+            # plt.savefig(filename_output)
             # plt.show()
+            # plt.close('all')
+            print('')
+            image_count += 1
+            # TODO REMOVE test code
+            if image_count >= 200:
+                break
 
     print("\n\nTotal\n\n")
-    for threshold, result_list in all_results.iteritems():
+    print("(true_pos, false_pos, false_neg)")
+    for threshold in threshold_list:
+        result_list = all_results[threshold]
         result_zip = zip(*result_list)
         true_pos  = sum(result_zip[0])
         false_pos = sum(result_zip[1])
         false_neg = sum(result_zip[2])
-        print(true_pos, false_pos, false_neg)
-        print("Threshold {}: precision = {}   recall = {}".format(threshold,
-                                                                  true_pos / (true_pos + false_pos),
-                                                                  true_pos / (true_pos + false_neg)))
+        print("{}\t{}\t{}".format(true_pos, false_pos, false_neg))
+        print("Threshold {}: recall = {}   precision = {}".format(threshold,
+                                                                  float(true_pos) / (true_pos + false_neg),
+                                                                  float(true_pos) / (true_pos + false_pos)))
 
 if __name__ == '__main__':
+
     main()

@@ -152,7 +152,7 @@ class imdb(object):
 
     def create_roidb_from_box_list(self, box_list, gt_roidb):
         assert len(box_list) == self.num_images, \
-                'Number of boxes must match number of ground-truth images'
+                'Number of boxes must match number of ground-truth images ({}, {})'.format(len(box_list), self.num_images)
         roidb = []
         for i in xrange(self.num_images):
             boxes = box_list[i]
