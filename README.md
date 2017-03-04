@@ -1,3 +1,7 @@
+# Fast R-CNN with dlib selective search
+
+This repo contains code that uses Fast R-CNN with SpaceNet dataset (https://aws.amazon.com/public-datasets/spacenet/). Selective search is done with dlib and no longer requires matlab to run.
+
 ### This code base is no longer maintained and exists as a historical artifact to supplement my ICCV 2015 paper. For more recent work that's faster and more accurrate, please see [Faster R-CNN](https://github.com/rbgirshick/py-faster-rcnn) (which also includes functionality for training Fast R-CNN).
 
 # *Fast* R-CNN: Fast Region-based Convolutional Networks for object detection
@@ -28,7 +32,7 @@ If you find Fast R-CNN useful in your research, please consider citing:
         Booktitle = {International Conference on Computer Vision ({ICCV})},
         Year = {2015}
     }
-    
+
 ### Contents
 1. [Requirements: software](#requirements-software)
 2. [Requirements: hardware](#requirements-hardware)
@@ -65,11 +69,11 @@ If you find Fast R-CNN useful in your research, please consider citing:
   # Make sure to clone with --recursive
   git clone --recursive https://github.com/rbgirshick/fast-rcnn.git
   ```
-  
+
 2. We'll call the directory that you cloned Fast R-CNN into `FRCN_ROOT`
 
    *Ignore notes 1 and 2 if you followed step 1 above.*
-   
+
    **Note 1:** If you didn't clone Fast R-CNN with the `--recursive` flag, then you'll need to manually clone the `caffe-fast-rcnn` submodule:
     ```Shell
     git submodule update --init --recursive
@@ -81,7 +85,7 @@ If you find Fast R-CNN useful in your research, please consider citing:
     cd $FRCN_ROOT/lib
     make
     ```
-    
+
 4. Build Caffe and pycaffe
     ```Shell
     cd $FRCN_ROOT/caffe-fast-rcnn
@@ -92,7 +96,7 @@ If you find Fast R-CNN useful in your research, please consider citing:
     # and your Makefile.config in place, then simply do:
     make -j8 && make pycaffe
     ```
-    
+
 5. Download pre-computed Fast R-CNN detectors
     ```Shell
     cd $FRCN_ROOT
@@ -152,7 +156,7 @@ Apologies if I've left your method off this list. Feel free to contact me and as
 	wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCtest_06-Nov-2007.tar
 	wget http://host.robots.ox.ac.uk/pascal/VOC/voc2007/VOCdevkit_08-Jun-2007.tar
 	```
-	
+
 2. Extract all of these tars into one directory named `VOCdevkit`
 
 	```Shell
@@ -169,7 +173,7 @@ Apologies if I've left your method off this list. Feel free to contact me and as
   	$VOCdevkit/VOC2007                    # image sets, annotations, etc.
   	# ... and several other directories ...
   	```
-  	
+
 4. Create symlinks for the PASCAL VOC dataset
 
 	```Shell
