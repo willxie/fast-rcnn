@@ -1,6 +1,8 @@
-# Fast R-CNN with dlib selective search
+## Fast R-CNN with dlib selective search
 
 This repo contains code that uses Fast R-CNN with SpaceNet dataset (https://aws.amazon.com/public-datasets/spacenet/). Selective search is done with dlib and no longer requires matlab to run.
+
+The below is the original README:
 
 ### This code base is no longer maintained and exists as a historical artifact to supplement my ICCV 2015 paper. For more recent work that's faster and more accurrate, please see [Faster R-CNN](https://github.com/rbgirshick/py-faster-rcnn) (which also includes functionality for training Fast R-CNN).
 
